@@ -9,8 +9,7 @@ o3djs.require('o3djs.picking');
 o3djs.require('o3djs.primitives');
 o3djs.require('o3djs.effect');
 o3djs.require('o3djs.loader');
-o3djs.require('o3djs.canvas');
-o3djs.require('o3djs.camera');
+
 // global o3d variables
 var g_root = [];
 var g_o3d;
@@ -30,32 +29,24 @@ var g_o3dHeight = -1;
 var g_o3dElement;
 var g_finished = false;	// for selenium
 var g_treeInfo;		// information about the transform graph.
-var g_hud_treeInfo; // information about the transformation graph for the HUD
 var g_camera = {
   farPlane: 5000,
   nearPlane:0.1
 };
-
 var g_dragging = false;
 
 var g_hudRoot;
 var g_hudViewInfo;
 var g_materialUrls = [
-  'shaders/texture-colormult.shader',     // 0
+  'shaders/texture-colormult.shader',    // 0
   'shaders/phong-with-colormult.shader'  // 1
-    
 ];
 
-
-
-var OS;
 
 var g_planeShape;
 
 var g_textureUrls = [
-  'openhumanlogo.png',      // 0
-  'circularbutton6.png',	// 1
-  'circularbutton7.png',	// 2
+  'openhumanlogo.png'   // 0
   ]
 var g_materials =[];	//To store manually loaded materials, used for HUD etc.
 var g_textures  =[];	//To store manually loaded textures
@@ -67,8 +58,6 @@ var oH_ASSET_PATH;
 var oH_loadingFirstFile=true;	
 var oH_Overlay;
 var oH_Logo;
-var oH_panButton;
-var oH_rotateButton;
 
 var removedObjects = [];
 
@@ -90,40 +79,6 @@ var origMaterial;
 var flashType	= "COLOR";	//Change this to "MESH" if you want mesh highlighting
 							//"COLOR" for color highlighting
 var highlightMeshTransform;
-var hudCanvasLib;			//Canvas library for the HUD alone
-var mainCanvasLib;			//Canvas library for drawing any text within the main view
-
-var g_hiddenCanvasRoot;		//The Hidden canvas is the canvas where we write to which 
-							//eventually gets tranformed to text labels within the main view
-							//using RTT (Render to Texture/Target)
-							
-var g_hiddenCanvasPack;
-var texture2d;
-
-/**
- *  The array Transition is a register of animations/transitions registered by 
- *  various objects/modules. Each entry in the transition array must contain the 
- *  implementation for a function called play. The onRender event iterates through
- *  every entry in Transition array and invokes the corresponding play() thus providing for
- *  multiple animations/transitions.
- *  
- */
-var Transition = [];
-
-
-var someText;
-var someLabel;
-
-var RENDER_TARGET_WIDTH = 512;
-var RENDER_TARGET_HEIGHT = 512;
-
-var labelRoot;
-
-var hiddenCanvasLib;
-
-var secondView;
-var RTTPlane;
-var RTTTransform;
 
 /**
  * Creates the client area.
@@ -140,23 +95,21 @@ function init()
 function initStep2(clientElements)
 {
 	
-	detectOS();
-	
 	oH_numObj =0;
 	oH_ASSET_PATH = "assets/oH/"
 	oH_OBJECTS_LIST = new Array  (
-		//"skull.o3dtgz",
+		"skull.o3dtgz",
 		"head.o3dtgz",
-		"eye.o3dtgz"//,
-		//"mandible.o3dtgz",
-		//"thalamus.o3dtgz",
-		//"cerebralcortex.o3dtgz",
-		//"cerebellum.o3dtgz",
-		//"corpuscallosum.o3dtgz",
-		//"medulla_oblongata.o3dtgz",
-		//"pituitary.o3dtgz",
-		//"pons.o3dtgz",
-		//"hypothalamus.o3dtgz"
+		"eye.o3dtgz",
+		"mandible.o3dtgz",
+		"thalamus.o3dtgz",
+		"cerebralcortex.o3dtgz",
+		"cerebellum.o3dtgz",
+		"corpuscallosum.o3dtgz",
+		"medulla_oblongata.o3dtgz",
+		"pituitary.o3dtgz",
+		"pons.o3dtgz",
+		"hypothalamus.o3dtgz"
 	);
 
 
@@ -226,92 +179,10 @@ function initStep2(clientElements)
 	 g_highlightMaterial.state = state;
 	 origMaterial = new Array();
 	 g_highlightShape = null;
-	
-	
-	/**********************************CREATE RTT***********************************/
-	
-	
-	 // Create the texture required for the color render-target.
-  	texture2d = g_pack.createTexture2D(RENDER_TARGET_WIDTH,
-                                         RENDER_TARGET_HEIGHT,
-                                         g_o3d.Texture.XRGB8,
-										 1,
-										 true);
-										 
-	var renderSurface = texture2d.getRenderSurface(0, g_pack);
-	
-	// Create the depth-stencil buffer required when rendering the hidden canvas snapshot
-  	var depthSurface = g_pack.createDepthStencilSurface(RENDER_TARGET_WIDTH,
-                                                	    RENDER_TARGET_HEIGHT);
-	
-	var renderSurfaceSet = g_pack.createObject('RenderSurfaceSet');
-  	
-	renderSurfaceSet.renderSurface = renderSurface;
-	renderSurfaceSet.renderDepthStencilSurface = depthSurface;
-  	renderSurfaceSet.parent = g_client.renderGraphRoot;
 	 
-	secondView = o3djs.rendergraph.createBasicView(
-		g_pack,
-		g_client.root,
-		renderSurfaceSet,
-		[1,1,1,1]
-	); 
-	 
-	
-	 
-	/************************Setup of Plane onto which we project the text***********/
-	
-	 var labelEffect = g_pack.createObject('Effect');
- 	 var fxString = o3djs.util.getElementContentById('fx');
- 	 labelEffect.loadFromFXString(fxString);
-		
-	
-	var labelMaterial = g_pack.createObject('Material');
- 	//labelMaterial.drawList = g_viewInfo.performanceDrawList;
-	 
- 	 // Apply our effect to this material.
- 	 labelMaterial.effect = labelEffect;
- 	 labelEffect.createUniformParameters(labelMaterial);
- 
-	  var samplerParam = labelMaterial.getParam('texSampler0');
-	  var sampler = g_pack.createObject('Sampler');
-	  sampler.texture = texture2d;
-	  samplerParam.value = sampler;
-	
-	//  labelMaterial.drawList = g_viewInfo.performanceDrawList;
-	/*
-	
-	 // Create a transform to put our data on.
- 	 labelRoot = g_pack.createObject('Transform');
-  
-  	 // Connect our label root to the client.
-  	 labelRoot.parent = g_client.root;
-	
-	 // Attach the cube to the root of the transform graph.
-	   var labelPlane = o3djs.primitives.createPlane( g_pack,
-                                        	      	labelMaterial,
-                                       		       	300.0,
-												  	300.0
-												   );
-	 
- 	 labelRoot.addShape(labelPlane);
-	 updateInfo();
-	 */
-		 
-	  var cameraInfo = o3djs.camera.getViewAndProjectionFromCameras(
-         g_client.root,
-        RENDER_TARGET_WIDTH,
-        RENDER_TARGET_HEIGHT);
-	 	 
-	 // Copy the view and projection to viewInfo structure..
-     secondView.drawContext.view = cameraInfo.view;
-     secondView.drawContext.projection = cameraInfo.projection;
-	 
-	 o3djs.pack.preparePack(g_pack, secondView);
-  
 	 
 	 /*************HUD IMPLEMENTATION**************************/
-		 
+	 
 	 //Create root transform for HUD
 	 g_hudRoot = g_pack.createObject('Transform');
 	 
@@ -338,7 +209,7 @@ function initStep2(clientElements)
  	 // position things using a 0-799, 0-599 coordinate system. If we change the
  	 // size of the client area everything will get scaled to fix but we don't
  	 // have to change any of our code. See 2d.html
-	 	
+	/* 	
 	 g_hudViewInfo.drawContext.projection = g_math.matrix4.orthographic(
  	     0 + 0.5,
  	     g_client.width  + 0.5,
@@ -352,8 +223,8 @@ function initStep2(clientElements)
   	    [0, 0, 1],   // eye
   	    [0, 0, 0],   // target
   	    [0, 1, 0]);  // up
-	 
-	  /*
+	 */
+	  
 	  g_hudViewInfo.drawContext.projection = g_math.matrix4.orthographic(
 	      -g_client.width * 0.5 + 0.5,
 	       g_client.width * 0.5 + 0.5,
@@ -366,7 +237,7 @@ function initStep2(clientElements)
       		[0, 0, 1],  // eye
       		[0, 0, 0],  // target
       		[0, 1, 0]); // up
-	*/
+	
 
 	 //Setup the materials for the HUD. Unlike the models this must be done manually
 	 //For now we have just one material. We may later have to add more.
@@ -385,34 +256,18 @@ function initStep2(clientElements)
  		   effect.createUniformParameters(material);
  
 		    // Set the default params. We'll override these with params on transforms.
-			material.getParam('colorMult').value = [1, 1, 1, 1];
+		    material.getParam('colorMult').value = [1, 1, 1, 1];
  
   			g_materials[ii] = material;
  	 }
 	  g_materials[0].drawList = g_hudViewInfo.zOrderedDrawList;
-	  
-	  /****TRY***/
-	  labelMaterial.drawList = g_hudViewInfo.zOrderedDrawList;
-	  	  
 	 // Create a 2d plane for images. createPlane makes an XZ plane by default
   	// so we pass in matrix to rotate it to an XY plane. We could do
   	// all our manipluations in XZ but most people seem to like XY for 2D.
   		g_planeShape = o3djs.primitives.createPlane(
   					    g_pack,
    					    g_materials[0],
-					 	1,
    					    1,
-   					    1,
-   					    1,
-  					    [[1, 0, 0, 0],
-  					    [0, 0, 1, 0],
-   					    [0,-1, 0, 0],
-  					    [0, 0, 0, 1]]);
-	 
-	 RTTPlane =  o3djs.primitives.createPlane(
-  					    g_pack,
-   					    g_materials[0],
-					 	1,
    					    1,
    					    1,
    					    1,
@@ -420,93 +275,7 @@ function initStep2(clientElements)
   					    [0, 0, 1, 0],
    					    [0,-1, 0, 0],
   					    [0, 0, 0, 1]]);
-	  
-	  RTTTransform = g_pack.createObject('Transform');
-	  RTTTransform.parent = g_hudRoot;
-	  RTTTransform.addShape(RTTPlane);
-	  RTTTransform.scale(2,2,1);
-	 
-	 /*
-	 //Setup the Transitions array
-	 Transitions = new Array();
-	*/						
-	// Create an instance of the canvas utilities library.
-   // hudCanvasLib = o3djs.canvas.create(g_pack, g_hudRoot, g_hudViewInfo);						
-	
-	hudCanvasLib = o3djs.canvas.create(g_pack, g_hudRoot, g_hudViewInfo);	
-	
-	/******************************************************************************/
-	// Create a sub-pack to manage the resources required for the hidden canvas
- // 	g_hiddenCanvasPack = g_client.createPack();
-		
-	  	
-//	g_hiddenCanvasRoot = g_pack.createObject('Transform');
-	
-//	var hiddenCanvasRenderRoot = g_pack.createObject('RenderNode');
-//  	hiddenCanvasRenderRoot.priority = 0;
-	
-//	hiddenCanvasRenderRoot.parent = g_client.renderGraphRoot;
-	
-	
-	// Create the render graph for a view.
- /* 	var hiddenCanvasViewInfo = o3djs.rendergraph.createBasicView(
-     														 g_hiddenCanvasPack,
-     														 g_hiddenCanvasRoot,
-     														 renderSurfaceSet
-															);
- 	
-	
- 	// Create a transform to put our data on.
- 	var hiddenCanvasDataRoot = g_pack.createObject('Transform');
- 
- 	// Connect our root to the client.
- 	hiddenCanvasDataRoot.parent = g_hiddenCanvasRoot;
-	
- 	
-	
-	/***************Setup the hiddenCanvas scene****************************/
-	
-	  /*
- 	 // Make sure the hidden canvas is lowest on the draw priority, thus hidden by 
-	 // everything else that is drawn over it. At the very least it must be behind the
-	 // 3D view.
- 	 hiddenCanvasViewInfo.root.priority = g_viewInfo.root.priority - 1;
- 
-	
-	
-	  // Turn off clearing the color for the hidden canvas since that would erase the 3d
-	  // parts but leave clearing the depth and stencil so the HUD is unaffected
-	  // by anything done by the 3d parts.
- 	 g_hudViewInfo.clearBuffer.clearColorFlag = false;
- 	
-	
- 	 // Set culling to none so we can flip images using rotation or negative scale.
- 	 hiddenCanvasViewInfo.zOrderedState.getStateParam('CullMode').value = g_o3d.State.CULL_NONE;
- 	 hiddenCanvasViewInfo.zOrderedState.getStateParam('ZWriteEnable').value = false;
- 
-	  // Create an orthographic matrix for 2d stuff in the Hidden Canvas.
- 	 // If we change the size of the client area everything will get scaled to fix but we don't
- 	 // have to change any of our code. See 2d.html
-	 	
-	 hiddenCanvasViewInfo.drawContext.projection = g_math.matrix4.orthographic(
- 	     0 + 0.5,
- 	     g_client.width  + 0.5,
- 	     g_client.height + 0.5,
- 	     0 + 0.5,
- 	     0.001,
- 	     1000
-	 );
- 
- 	 hiddenCanvasViewInfo.drawContext.view = g_math.matrix4.lookAt(
-  	    [0, 0, 1],   // eye
-  	    [0, 0, 0],   // target
-  	    [0, 1, 0]);  // up
-		
-		
-	// Create an instance of the canvas utilities library.
-    hiddenCanvasLib = o3djs.canvas.create(g_pack, g_hiddenCanvasRoot, hiddenCanvasViewInfo);							
-*/		
-	/********************************************************************************/						
+					
 	 // Load all the textures.
      var loader = o3djs.loader.createLoader(initStep3);
  	 for (var ii = 0; ii < g_textureUrls.length; ++ii) {
@@ -517,134 +286,31 @@ function initStep2(clientElements)
 
 function initStep3(){
 	// Setup the hud images.
-	//oH Logo
-	oH_Logo = new Image(g_textures[0], true,g_hudRoot,"logo");
-	oH_Logo.transform.translate(3, 1, -4);
-	
-	//Pan Buttons
-	oH_panButton = new Image(g_textures[1], true,g_hudRoot,"panbutton");
-	oH_panButton.transform.translate(850, 750, -3);
-	
-	oH_rotateButton = new Image(g_textures[2], true,g_hudRoot,"rotatebutton");
-	oH_rotateButton.transform.translate(950, 750, -3);
-	
-	var longText = "The OpenHuman Project"; 	 
-	someText = new Dialog(hudCanvasLib,"Trial Title",longText,[90,100]);	
-	
-//	someLabel = new Label("Head",[90,100]);
-
-	updateHUDInfo();
-	
-	
-	
- 
-	/******************************HIDDEN CANVAS SCENE*********************/	
- 	/*
- 	var labelText = "OH"; 	 
-	someLabel = new Dialog(hiddenCanvasLib,"Trial Title",labelText,[90,100]);	
- 	*/
- 
+	oH_Logo = new Image(g_textures[0], true);
+	oH_Logo.transform.translate(3, 1, -2);
 }
 
-function detectOS()
-{
-		
-	if (navigator.appVersion.indexOf("Win")!=-1)
-	 OS = "Windows";
-	
-	if (navigator.appVersion.indexOf("Mac")!=-1)
-	 OS = "Mac";
-	
-	if (navigator.appVersion.indexOf("X11")!=-1) 
-	 OS = "UNIX";
-
-	if (navigator.appVersion.indexOf("Linux")!=-1)
-	 OS = "Linux";
-	 
-	 document.getElementById("footer").innerHTML = OS +"\n" + "Text Supported?: " + textSupported();
-}
-
-function textSupported()
-{
-	if(OS == "Unix" || OS == "Linux")
-	return false;
-	else
-	return true;
-}
-
-/**
- * Loads a texture and saves it in the g_textures array.
- * @param {Object} loader The loader to load with.
- * @param {stinrg} url of texture to load
- * @param {number} index Index to put texture in g_textures
- * 
- */
 function loadTexture(loader, url, index) {
   loader.loadTexture(g_pack, url, function(texture, exception) {
     if (exception) {
       alert(exception);
     } else {
-      g_textures[index] = texture; 
+      g_textures[index] = texture;
     }
   });
 }
 
 
-/**
- *  Image Button :  Button with only a simple image as background
- *  				Can accept mutiple images to use during onMouseDown and mouseOver
- * @param {Object}  parentTransform Transform to which this button must be attached
- * @param {array} 	location Array indicating the coordinates of the button w.r.t the parent(?)
- * @param {Object} 	defaultImageTex Default Button Image
- * @param {Object} 	onDownImageTex MouseDown Button Image
- * @param {Object} 	onOverImageTex MouseOver Button Image
- * 
- */
-function ImageButton(parentTransform,location,defaultImageTex,onDownImageTex,onOverImageTex)
-{
-	// create a transform for positioning
-  	this.transform = g_pack.createObject('Transform');
- 	this.transform.parent = parentTransform;
-	
-	//Translate it as necessary
-	this.transform.translate(location);
-	
-	//Create images from the textures	
-	//TODO: Default Error Image in case of no image being supplied
-	if(defaultImage)
-	this.defaultImage = new Image(defaultImageTex,true,this.transform);
-	//TODO: A try catch with a fatal error if no default image is supplied	
-	if(onDownImage)
-	this.onDownImage  = new Image( onDownImageTex,true,this.transform);
-	this.onDownImage.transform.visible = false;	//Not visible until clicked
-	
-	if(onOverImage)
-	this.onOverImage  = new Image( onOverImageTex,true,this.transform);	
-	this.onOverImage.transform.visible = false;	//Not visible until mouse over
-	
-}
-
-
-/**
- *  Encapsulation of an image
- * @param {Object} texure The texture to use in the Image
- * @param {boolean} opt_topLeft indicating the positioning of the texture
- * @param {Object} attachTo Parent Transform to attach this image to
- * 
- */
-function Image(texture, opt_topLeft,attachTo,name) {
+function Image(texture, opt_topLeft) {
   // create a transform for positioning
   this.transform = g_pack.createObject('Transform');
-  this.transform.parent = attachTo;
- // this.transform.name	= this.transform.createParam('name','o3d.ParamString');
- // this.transform.name.set(name);
+  this.transform.parent = g_hudRoot;
  
   // create a transform for scaling to the size of the image just so
   // we don't have to manage that manually in the transform above.
   this.scaleTransform = g_pack.createObject('Transform');
   this.scaleTransform.parent = this.transform;
-  this.scaleTransform.name = name;
-  
+ 
   // setup the sampler for the texture
   this.sampler = g_pack.createObject('Sampler');
   this.sampler.addressModeU = g_o3d.Sampler.CLAMP;
@@ -665,11 +331,7 @@ function Image(texture, opt_topLeft,attachTo,name) {
     this.scaleTransform.translate(texture.width / 2, texture.height / 2, 0);
   }
   this.scaleTransform.scale(texture.width, -texture.height, 1);
-  
-  
 }
-
-
 
 /**
  * Sets the color multiplier for the image.
@@ -840,16 +502,6 @@ function updateInfo()
 	g_treeInfo.update();
 }
 
-function updateHUDInfo()
-{
-	if (!g_hud_treeInfo) 
-	{
-		g_hud_treeInfo = o3djs.picking.createTransformInfo(g_hudRoot,null);
-	}
-	g_hud_treeInfo.update();
-}
-
-
 function startDragging(e)
 {
 	g_lastRot = g_thisRot;
@@ -857,7 +509,6 @@ function startDragging(e)
 	g_dragging = true;
 //	if(e.shiftKey)
 	pick(e);
-	hudMouseHandler(e);
 }
 
 function drag(e)
@@ -961,29 +612,11 @@ function onRender(renderEvent)
 			{
 				flashMode = -flashMode;
 				
-				if (flashType == "COLOR") {
-					highlight(flashObject, flashMode);
-					
-					
-					/*******TRIAL***************/
-					if (flashMode == 1) {
-						
-						someText.text			 = "Changed Text";
-						someText.textPaint.color = [0, 0, 0, 1];
-						someText.canvasQuad.updateTexture();
-					}
-					else {
-						someText.textPaint.color = [1, 1, 1, 1];
-						
-						someText.canvasQuad.updateTexture();
-					}
-					/**************END*********************/
-					
-					
-				}
-				else {
-					highlightMesh(flashMode);
-				}
+				if(flashType == "COLOR")				
+				highlight(flashObject, flashMode);
+				else
+				highlightMesh(flashMode);
+				
 				flashedThisInterval = true;
 				flashCounter++;
 				
@@ -1029,17 +662,6 @@ function onRender(renderEvent)
 				}
 			
 	}
-	/*
-	//Call all the transitions
-	for(var i=0; i<Transitions.length; i++)
-	{
-		if(Transitions[i])
-		{
-			Transitions[i].play(renderEvent);
-		}
-	}
-	*/
-	
 }
 
 
@@ -1179,14 +801,12 @@ function pick(e)
 						if (flashOrigColor) {
 							//We need to restore the object to its original brightness if needed
 							highlight(flashObject, -1);
-							
 						}
 					}
 					else {
 						//Here we need to remove duplicated mesh once the highlighting is done
 						if(g_highlightShape)
 						highlightMesh(-1);
-						
 					}
 					flashMode = -1;
 					
@@ -1241,29 +861,6 @@ function pick(e)
 	//	g_loadingElement.innerHTML = 'Nothing selected';	
 	}
 }
-
-function hudMouseHandler(e)
-{
-	var worldRay = o3djs.picking.clientPositionToWorldRay(
-	e.x,
-	e.y,
-	g_hudViewInfo.drawContext,
-	g_client.width,			//TODO: Keep track of the HUD Dimensions and pass that
-	g_client.height			// For now HUD Dimensions = dimensions of the app view
-	);
-	
-	// Update the entire tree in case anything moved.
-	g_hud_treeInfo.update();
-  	
-	var pickInfo = g_hud_treeInfo.pick(worldRay);
-	if (pickInfo) {
-		
-		
-		//	var shapeList = pickInfo.shapeInfo.parent.transform.shapes;
-			document.getElementById("footer").innerHTML = pickInfo.shapeInfo.parent.transform.name + ':Name of Shape';
-	}
-}
-
 
 function info()
 {
@@ -1468,7 +1065,6 @@ function resetView()
 * @param {Integer} v Value as a value between 0 - 100 %
 * @returns {Array} The RGB values  EG: [r,g,b], [255,255,255]
 */
-
 function hsvToRgb(h,s,v) {
 
     var s = s / 100,
@@ -1509,7 +1105,6 @@ function hsvToRgb(h,s,v) {
 * @param {Integer} b Blue value, 0-255
 * @returns {Array} The HSV values EG: [h,s,v], [0-360 degrees, 0-100%, 0-100%]
 */
-
 function rgbToHsv(r, g, b) {
 
     var r = (r / 255),
@@ -1549,159 +1144,9 @@ function rgbToHsv(r, g, b) {
     return [Math.round(hue), Math.round(saturation * 100), Math.round(value * 100)];
 }
 
-function Dialog(canvas,title,text,position,width,height,bgColor,bgimage)
-{
-	//Text in Dialog
-	//Defaults to null text so that we can use the same dialog object to display just pictures
-	this.text = text || "";
-	
-	this.posX  	 = position[0] || 0;
-	this.posY 	 = position[1] || 0;
-	
-	this.width   =  width || 400;
-	this.height  = height || 300;
-	
-	this.bgColor = bgColor	||	[0.847, 0.847, 0.847, 0.5];
-	this.canvas	 = canvas;
-	
-	
-	// Create a canvas surface to draw on.
-  	this.canvasQuad = this.canvas.createXYQuad( 
-	 										   this.posX,
-	 										   this.posY, 
-											   -1, 
-											   this.width, 
-											   this.height, 
-											   true, 
-											   g_hudRoot
-											  );
- 
- 	 this.canvasQuad.canvas.clear(this.bgColor);
- 	 	 
- 	 this.backgroundPaint = g_pack.createObject('CanvasPaint');
- 	 this.backgroundPaint.color = [1, 0.94, 0.94, 0.5];
- 	 
- 	 this.textPaint = g_pack.createObject('CanvasPaint');
-	 var finColor 	= [0,0,0,1];
-	 
-	// this.transition = new Transition_fadeIn(finColor,1);
-	 
- 	// this.textPaint.color = this.transition.currColor;
-	 this.textPaint.color = finColor;
- 	 this.textPaint.textSize = 24;
-     this.textPaint.textTypeface = 'Arial';
- 	
-    var lineDimensions = this.textPaint.measureText('Arial');
- 	
-	this.canvasQuad.canvas.drawRect(lineDimensions[0],
-                                 	lineDimensions[1],
-                                 	lineDimensions[2],
-                                	lineDimensions[3],
-                               		this.backgroundPaint);
-    
- 	this.canvasQuad.canvas.drawText(this.text,
-                              		 100,
-                              		 50,
-                              		 this.textPaint);
-	 this.canvasQuad.updateTexture();
-}
-
-//A new constructor for a label. We must later derive both Dialog and Lable from the same parent
-
-function Label(text,position,width,height,bgColor)
-{
-	//Text in Dialog
-	this.text = text || "";
-	
-	this.posX  	 = position[0] || 0;
-	this.posY 	 = position[1] || 0;
-	
-	this.width   =  width || 50;
-	this.height  = height || 50;
-	
-	this.bgColor = bgColor	||	[0.847, 0.847, 0.847, 0.5];
-	
-	// Create a canvas surface to draw on.
-  	this.canvasQuad = mainCanvasLib.createXYQuad( 
-	 										   this.posX,
-	 										   this.posY, 
-											   -1, 
-											   this.width, 
-											   this.height, 
-											   true, 
-											   g_client.root
-											  );
- 
- 	 this.canvasQuad.canvas.clear(this.bgColor);
- 	 	 
- 	 this.backgroundPaint = g_pack.createObject('CanvasPaint');
- 	 this.backgroundPaint.color = [1, 0.94, 0.94, 0.5];
- 	 
- 	 this.textPaint = g_pack.createObject('CanvasPaint');
-	 var finColor 	= [0,0,0,1];
-	 
-	// this.transition = new Transition_fadeIn(finColor,1);
-	 
- 	// this.textPaint.color = this.transition.currColor;
-	 this.textPaint.color = finColor;
- 	 this.textPaint.textSize = 24;
-     this.textPaint.textTypeface = 'Arial';
- 	
-    var lineDimensions = this.textPaint.measureText('Arial');
- 	
-	this.canvasQuad.canvas.drawRect(lineDimensions[0],
-                                 	lineDimensions[1],
-                                 	lineDimensions[2],
-                                	lineDimensions[3],
-                               		this.backgroundPaint);
-    
- 	this.canvasQuad.canvas.drawText(this.text,
-                              		 100,
-                              		 50,
-                              		 this.textPaint);
-	 this.canvasQuad.updateTexture();
-}
-
-
-
-
-function Transition_fadeIn(finalColor, rate){
-
-	//A boolean keeping track of whether the transition is active
-	this.active = true;
-	
-	//Set the initial color to a transparent white
-	this.initColor = [1, 1, 1, 0];
-	
-	//set the curr color to initcolor at initialisation
-	this.currColor = this.initColor || [0.5, 0.5, 0.5, 1];
-	
-	this.rate = rate || 1;
-	
-	this.finalColor = finalColor || [0, 0, 0, 1];
-	
-	//Define the function that will get assigned to the Transition counter 
-	//so that its invoked onRender
-	this.play = run_fadeIn;
-	
-	Transition[Transition.length] = this;
-	
-}
-
-function run_fadeIn(renderevent){
-	
-		if (this.active) 
-			for (var i = 0; i < 4; i++) 
-				this.currColor[i] += (this.finalColor[i] - this.currColor[i]) * rate * renderevent.elapsedTime;
-		
-		if ((this.finalColor[0] - this.currColor[0]) <= 0 &&
-		(this.finalColor[1] - this.currColor[1]) <= 0 &&
-		(this.finalColor[2] - this.currColor[2]) <= 0 &&
-		(this.finalColor[3] - this.currColor[3]) <= 0) {
-			this.active = false;
-			for (var j = 0; j < 4; j++) 
-				this.currColor[j] = this.finalColor[j];
-			
-		}
-		
-}
+/**
+ * Loads a texture and saves it in the g_textures array.
+ * @param {Object} loader The loader to load with.
+ * @param {stinrg} url of texture to load
+ * @param {number} index Index to put texture in g_textures
+ */
