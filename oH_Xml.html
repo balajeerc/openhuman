@@ -1,0 +1,167 @@
+<html>
+<head>
+<script type="text/javascript">
+
+var model_names	   	= [];
+var model_labels   	= [];
+
+
+var label_bitmap    = [];
+var label_position = [];
+var label_normal   = [];
+var label_summary   = [];
+var label_link	    = [];
+
+var xmlData;
+
+function initXML()
+{
+
+	function loadVars(query,store_in)
+	 {
+
+		// IE, as whimsical as it is characteristically chooses to use array offset of 0 
+		// as opposed to W3C recommendation of 1 for XPath
+		if (window.ActiveXObject)
+		{
+			var nodes=xmlData.selectNodes(query);
+			
+			if( typeof(store_in) != "object" )	//Then its not an array, only a single value is expected
+			{
+				store_in = result.nodeValue;
+				return store_in;
+			}
+			else					//It is in fact an array
+			{
+				for (i=0;i<nodes.length;i++)
+			  	{				 
+					store_in[store_in.length] = result.nodeValue;
+			  	}
+			}
+		}
+		// For all the other browsers
+		else if (document.implementation && document.implementation.createDocument)
+		{
+			var nodes=xmlData.evaluate(query, xmlData, null, XPathResult.ANY_TYPE,null);
+			var result=nodes.iterateNext();			
+
+			while (result)
+			  {				
+				if( typeof(store_in) != "object" )	//Then its not an array, only a single value is expected
+				{
+					
+				 	store_in = result.nodeValue;
+					return store_in;
+				}
+				else 					//It is an array so iterate till the 
+				{
+					store_in[store_in.length] = result.nodeValue;
+				 	result=nodes.iterateNext();
+				}
+			  }
+		}		
+	}
+
+	var IE = false;
+		
+	// for Internet Explorer
+	if (window.ActiveXObject)
+	  {
+	  xmlData=new ActiveXObject("Microsoft.XMLDOM");
+	  IE = true;	
+	  }
+	// all the other Browsers
+	else if (document.implementation && document.implementation.createDocument)
+	  {
+	  xmlData=document.implementation.createDocument("","",null);
+
+	  }
+	else
+	  {
+	  alert('XML Parsing not supported on your browser. Please try using Mozilla Firefox');
+	  }
+
+	xmlData.async=false;
+	xmlData.load("database.xml");
+	
+	 	
+		
+
+	//First we store all models' names
+	loadVars.call(null,"/openhuman/model/model_name/text()",model_names);
+
+		
+	for( var i= 0 ; i < model_names.length ; i++ )
+	{
+		//Next we store all the labels for each model		
+		model_labels[ model_names[i] ] = new Array();		
+		loadVars.call(null,"/openhuman/model["+ ( (IE) ? i:i+1 ) +"]/label/label_name/text()",model_labels[ model_names[i] ]);
+
+		
+		for( var j=0; j < model_labels[ model_names[i] ].length ; j++ )
+		{
+			var thisLabel =  "//label[label_name='"+ model_labels[ model_names[i] ][j] +"']";
+			
+			//Now we load the labels' bitmaps 
+			label_bitmap[ model_labels[ model_names[i] ][j] ] = loadVars( thisLabel + "/label_bitmap/text()","" );
+			
+			//Load the labels' links 
+			label_link[ model_labels[ model_names[i] ][j] ] = loadVars( thisLabel + "/link/text()","" );
+
+			//Load the label summary
+			label_summary[ model_labels[ model_names[i] ][j] ] = loadVars( thisLabel + "/summary/text()", "" );
+
+			//Load the label Positions			
+			label_position[ model_labels[ model_names[i] ][j] ]    = new Array();
+			label_position[ model_labels[ model_names[i] ][j] ][0] = loadVars( thisLabel + "/position/x/text()", "" );
+			label_position[ model_labels[ model_names[i] ][j] ][1] = loadVars( thisLabel + "/position/y/text()", "" );
+			label_position[ model_labels[ model_names[i] ][j] ][2] = loadVars( thisLabel + "/position/z/text()", "" );
+
+			//Load the label Normals			
+			label_normal[ model_labels[ model_names[i] ][j] ]    = new Array();
+			label_normal[ model_labels[ model_names[i] ][j] ][0] = loadVars( thisLabel + "/position/normal_x/text()", "" );
+			label_normal[ model_labels[ model_names[i] ][j] ][1] = loadVars( thisLabel + "/position/normal_y/text()", "" );
+			label_normal[ model_labels[ model_names[i] ][j] ][2] = loadVars( thisLabel + "/position/normal_z/text()", "" );
+
+		}
+		
+	}	
+	
+	
+	//Debug Text
+	for(var x=0;x<model_labels.length;x++)
+	{
+		document.write(label_bitmap[ model_labels[ model_names[i] ][j] ] + + "<br />" );
+	}
+
+
+	for( var i= 0 ; i < model_names.length ; i++ )
+	{
+		document.write( "Model No. "+ (i+1) +" is " + model_names[i] + "<br />"); 
+		for( var j=0; j < model_labels[ model_names[i] ].length; j++)
+		{
+			
+		document.write( "&nbsp  " + "whose label No. " + (j+1) + " is " + model_labels[ model_names[i] ][j]  + "<br />");
+		document.write( "&nbsp  &nbsp " + " the bitmap for which is " + label_bitmap[ model_labels[ model_names[i] ][j] ] +  "<br />");
+		document.write( "&nbsp  &nbsp " + " the link for which is " + label_link[ model_labels[ model_names[i] ][j] ] +  "<br />");
+        	document.write( "&nbsp  &nbsp " + " the summary for which is " + label_summary[ model_labels[ model_names[i] ][j] ] + "<br />" );		
+		document.write( "&nbsp  &nbsp " + " the x position for which is " + label_position[ model_labels[ model_names[i] ][j] ][0] +  "<br />");
+		document.write( "&nbsp  &nbsp " + " the y position for which is " + label_position[ model_labels[ model_names[i] ][j] ][1] +  "<br />");
+		document.write( "&nbsp  &nbsp " + " the y position for which is " + label_position[ model_labels[ model_names[i] ][j] ][2] +  "<br />");
+		document.write( "&nbsp  &nbsp " + " the x normal for which is " + label_normal[ model_labels[ model_names[i] ][j] ][0] +  "<br />");
+		document.write( "&nbsp  &nbsp " + " the y normal for which is " + label_normal[ model_labels[ model_names[i] ][j] ][1] +  "<br />");
+		document.write( "&nbsp  &nbsp " + " the z normal for which is " + label_normal[ model_labels[ model_names[i] ][j] ][2] +  "<br />");
+		}
+
+	}	
+	
+}
+
+
+
+initXML();
+
+</script>
+</head>
+<body></body>
+</html>

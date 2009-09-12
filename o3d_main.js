@@ -120,6 +120,19 @@ var billboardMaterial;
 var g_globalParams;
 var tempTex;
 
+
+var model_names	   	= [];
+var model_asset		= [];
+var model_labels   	= [];
+
+var label_bitmap    = [];
+var label_position  = [];
+var label_normal    = [];
+var label_summary   = [];
+var label_link	    = [];
+
+var xmlData;
+
 /**
  * Creates the client area.
  */
@@ -279,16 +292,20 @@ function initStep2(clientElements){
 	//Set arrow material to black
 	labelArrowMaterial.getParam('color').value = [0, 0, 0, 1];
 	
+	//Load all the data from XML
+	initXML();
+	
 	// Load all the labelText textures.
 	var loader = o3djs.loader.createLoader(initStep3);
 	
-	for (var ii = 0; ii < xmlDoc.getElementsByTagName("model_name").length; ++ii) {
+	for ( var ii = 0; ii < model_names.length; ii++ ) {
 	
-		for (j = 0; j < xmlDoc.getElementsByTagName("model")[ii].getElementsByTagName("label").length; j++) {
-			loadTexture(loader, "assets/bitmaps/" + xmlDoc.getElementsByTagName("model")[ii].getElementsByTagName("label")[j].getElementsByTagName("label_bitmap")[0].childNodes[0].nodeValue);
-			alert(xmlDoc.getElementsByTagName("model")[ii].getElementsByTagName("label")[j].getElementsByTagName("label_bitmap")[0].childNodes[0].nodeValue);
+		for( var jj = 0; jj < model_labels[ model_names[ii] ].length; jj++ )
+		{
+			loadTexture( loader, "assets/bitmaps/" + label_bitmap[ model_labels[ model_names[ii] ][jj] ] );
+											
 		}
-		loader.finish();
+		
 		
 	}
 	
@@ -320,6 +337,114 @@ function initStep3(){
 
 }	
 
+function initXML(){
+
+	function loadVars(query, store_in){
+	
+		// IE, as whimsical as it is characteristically chooses to use array offset of 0 
+		// as opposed to W3C recommendation of 1 for XPath
+		if (window.ActiveXObject) {
+			var nodes = xmlData.selectNodes(query);
+			
+			if (typeof(store_in) != "object") //Then its not an array, only a single value is expected
+			{
+				store_in = result.nodeValue;
+				return store_in;
+			}
+			else //It is in fact an array
+			{
+				for (i = 0; i < nodes.length; i++) {
+					store_in[store_in.length] = result.nodeValue;
+				}
+			}
+		}
+		// For all the other browsers
+		else 
+			if (document.implementation && document.implementation.createDocument) {
+				var nodes = xmlData.evaluate(query, xmlData, null, XPathResult.ANY_TYPE, null);
+				var result = nodes.iterateNext();
+				
+				while (result) {
+					if (typeof(store_in) != "object") //Then its not an array, only a single value is expected
+					{
+					
+						store_in = result.nodeValue;
+						return store_in;
+					}
+					else //It is an array so iterate till the 
+					{
+						store_in[store_in.length] = result.nodeValue;
+						result = nodes.iterateNext();
+					}
+				}
+			}
+	}
+	
+	var IE = false;
+	
+	// for Internet Explorer
+	if (window.ActiveXObject) {
+		xmlData = new ActiveXObject("Microsoft.XMLDOM");
+		IE = true;
+	}
+	// all the other Browsers
+	else 
+		if (document.implementation && document.implementation.createDocument) {
+			xmlData = document.implementation.createDocument("", "", null);
+			
+		}
+		else {
+			alert('XML Parsing not supported on your browser. Please try using Mozilla Firefox');
+		}
+	
+	xmlData.async = false;
+	xmlData.load("database.xml");
+	
+	
+	
+	
+	//First we store all models' names
+	loadVars.call(null, "/openhuman/model/model_name/text()", model_names);
+	
+	
+	for (var i = 0; i < model_names.length; i++) {
+		//Next we store all the labels for each model		
+		model_labels[model_names[i]] = new Array();
+		loadVars.call(null, "/openhuman/model[" + ((IE) ? i : i + 1) + "]/label/label_name/text()", model_labels[model_names[i]]);
+		
+		//Load the model assets
+		model_asset[ model_names[i] ] =  loadVars( "/openhuman/model["+ ( (IE) ? i:i+1 ) +"]/asset/text()", "" );		
+		
+		for (var j = 0; j < model_labels[model_names[i]].length; j++) {
+			var thisLabel = "//label[label_name='" + model_labels[model_names[i]][j] + "']";
+			
+			//Now we load the labels' bitmaps 
+			label_bitmap[model_labels[model_names[i]][j]] = loadVars(thisLabel + "/label_bitmap/text()", "");
+			
+			//Load the labels' links 
+			label_link[model_labels[model_names[i]][j]] = loadVars(thisLabel + "/link/text()", "");
+			
+			//Load the label summary
+			label_summary[model_labels[model_names[i]][j]] = loadVars(thisLabel + "/summary/text()", "");
+			
+			//Load the label Positions			
+			label_position[model_labels[model_names[i]][j]] = new Array();
+			label_position[model_labels[model_names[i]][j]][0] = new Number( loadVars(thisLabel + "/position/x/text()", "") ).valueOf();
+			label_position[model_labels[model_names[i]][j]][1] = new Number( loadVars(thisLabel + "/position/y/text()", "") ).valueOf();
+			label_position[model_labels[model_names[i]][j]][2] = new Number( loadVars(thisLabel + "/position/z/text()", "") ).valueOf();
+			
+			//Load the label Normals			
+			label_normal[model_labels[model_names[i]][j]] = new Array();
+			label_normal[model_labels[model_names[i]][j]][0] = new Number( loadVars(thisLabel + "/position/normal_x/text()", "") ).valueOf();
+			label_normal[model_labels[model_names[i]][j]][1] = new Number( loadVars(thisLabel + "/position/normal_y/text()", "") ).valueOf();
+			label_normal[model_labels[model_names[i]][j]][2] = new Number( loadVars(thisLabel + "/position/normal_z/text()", "") ).valueOf();
+			
+		}
+		
+	}
+}
+
+
 function loadModels(reload)
 {
 	oH_OBJECTS_LIST = [];
@@ -329,26 +454,10 @@ function loadModels(reload)
 	
 	for(i=0;i<xmlDoc.getElementsByTagName("asset").length;i++)
 	{
-		oH_OBJECTS_LIST[i]= xmlDoc.getElementsByTagName("asset")[i].childNodes[0].nodeValue;
-		oH_OBJECTS_NAMES[i]=xmlDoc.getElementsByTagName("model_name")[i].childNodes[0].nodeValue;
+		oH_OBJECTS_LIST[i]= model_asset[ model_names[i] ];
+		oH_OBJECTS_NAMES[i]=model_names[i];
 		 
 	}
-	
-	/*oH_OBJECTS_LIST = new Array  (
-		"head.o3dtgz",
-		"eye.o3dtgz",
-		"skull.o3dtgz",
-		"mandible.o3dtgz",
-		"cerebralcortex.o3dtgz",
-		"corpuscallosum.o3dtgz",
-		"thalamus.o3dtgz",
-		"cerebellum.o3dtgz",
-		"medulla_oblongata.o3dtgz",
-		"pituitary.o3dtgz",
-		"pons.o3dtgz",
-		"hypothalamus.o3dtgz"
-		/*"cube.o3dtgz"
-	);*/
 
 	//use the reload boolean in case a reload is necessary
 	
@@ -375,31 +484,19 @@ function loadModels(reload)
 
 function loadLabels()
 {
-	//console.log("entering load labels");
-	//console.log(xmlDoc.getElementsByTagName("model")[0].getElementsByTagName("label")[0].getElementsByTagName("label_bitmap")[0].childNodes[0].nodeValue);
-	for(i=0;i<xmlDoc.getElementsByTagName("model_name").length;i++)
+	
+	for(i=0;i<model_names.length;i++)
 	{
-		//console.log("entering first for");
-		//console.log(xmlDoc.getElementsByTagName("model_name")[i].getElementsByTagName("label")[0].childNodes[0].nodeValue);
-		for(j=0;j<xmlDoc.getElementsByTagName("model")[i].getElementsByTagName("label").length;j++)
+		
+		for(j=0; j<model_labels[ model_names[i] ].length; j++)
 		{
-			//console.log("entering second for loop");
-			//console.log(xmlDoc.getElementsByTagName("model")[i].getElementsByTagName("label")[j].getElementsByTagName("label_bitmap")[0].childNodes[0].nodeValue);
-			
-			alert(xmlDoc.getElementsByTagName("model")[i].nodeValue);
-			
+			//name,bitmap,pos,norm,summary,link
 			oH_obj[i].addLabel(
-			xmlDoc.getElementsByTagName("model")[i].getElementsByTagName("label")[j].getElementsByTagName("label_name")[0].childNodes[0].nodeValue,
-			xmlDoc.getElementsByTagName("model")[i].getElementsByTagName("label")[j].getElementsByTagName("label_bitmap")[0].childNodes[0].nodeValue,
-			[new Number(xmlDoc.getElementsByTagName("model")[i].getElementsByTagName("label")[j].getElementsByTagName("position")[0].getElementsByTagName("x")[0].childNodes[0].nodeValue).valueOf(),
-			new Number(xmlDoc.getElementsByTagName("model")[i].getElementsByTagName("label")[j].getElementsByTagName("position")[0].getElementsByTagName("y")[0].childNodes[0].nodeValue).valueOf(),
-			new Number(xmlDoc.getElementsByTagName("model")[i].getElementsByTagName("label")[j].getElementsByTagName("position")[0].getElementsByTagName("z")[0].childNodes[0].nodeValue).valueOf()],
-			[new Number(xmlDoc.getElementsByTagName("model")[i].getElementsByTagName("label")[j].getElementsByTagName("position")[0].getElementsByTagName("normal_x")[0].childNodes[0].nodeValue).valueOf(),
-			new Number(xmlDoc.getElementsByTagName("model")[i].getElementsByTagName("label")[j].getElementsByTagName("position")[0].getElementsByTagName("normal_y")[0].childNodes[0].nodeValue).valueOf(),
-			new Number(xmlDoc.getElementsByTagName("model")[i].getElementsByTagName("label")[j].getElementsByTagName("position")[0].getElementsByTagName("normal_z")[0].childNodes[0].nodeValue).valueOf()],
-			xmlDoc.getElementsByTagName("model")[i].getElementsByTagName("label")[j].getElementsByTagName("summary")[0].childNodes[0].nodeValue,
-			xmlDoc.getElementsByTagName("model")[i].getElementsByTagName("label")[j].getElementsByTagName("link")[0].childNodes[0].nodeValue
-			);
+								model_labels[ model_names[i] ][j],						//label name
+								label_bitmap[ model_labels[ model_names[i] ][j] ],		//label bitmap
+								label_position[ model_labels[ model_names[i] ][j] ],	//label position
+								label_normal[ model_labels[ model_names[i] ][j] ]		//label normal
+							  );
 		}
 	}
 }
