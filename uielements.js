@@ -1,3 +1,18 @@
+/*
+ * Copyright 2009 Rohit Pidaparthi
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ * Author: Rohit Pidaparthi <rohitpid@gmail.com>
+ *
+ */
+
  $(function() {
 	$("a#dialog_hotkeys").toggle(function() {
 		$("#instructions_box").slideDown(1000);
@@ -38,7 +53,6 @@
 			}
 		}
 	});
-
 
 	// setup control for scaling objects
 	var lastValue=1;
@@ -151,9 +165,6 @@
 		});
 	});
 
-	$("#info").click(function(){
-	info();
-	});
 	$("#hide").click(function(){
 	hide();
 	});
@@ -167,8 +178,48 @@
 	showall();
 	});
 	$("#reset").click(function(){
-	cam.setPosition([0,0,10]);
-	cam.setLookAtPoint([0,0,0]);
 	showall();
+	loadOriginalCameraView();
+	});
+	$("#instructions").click(function(){
+	g_loadingElement.innerHTML ="<li>Use the controls above to zoom,scale,rotate and pan around the body.</li><li>The mouse can be used to rotate the objects by clicking and dragging.</li><li>The mouse scrollwheel can be used to zoom in/out.</li><li>Click on an object to select organ</li><li>Information about organs from wikipedia is displayed in this box.</li><li>Hide button hides selected organ.</li><li>Show button shows last hidden organ.</li><li>Hide All button hides all organs</li><li>Show All button shows all organs</li>"
+	runEffect("explode");
+	});
+	$("#label_toggle").click(function(){
+	removeLabels();
+	});
+	$("#debug_toggle").toggle(function() {
+		//console.log("toggle true");
+		labelDebug = true;
+	}, function() {
+		//console.log("toggle false");
+		labelDebug = false;
 	});
 });
+
+		//run the currently selected effect
+		function runEffect(effect){
+			//get effect type from 
+			var selectedEffect = effect;
+			
+			//most effect types need no options passed by default
+			var options = {};
+			//check if it's scale, transfer, or size - they need options explicitly set
+			if(selectedEffect == 'scale'){  options = {percent: 100}; }
+			else if(selectedEffect == 'transfer'){ options = { to: "#button", className: 'ui-effects-transfer' }; }
+			else if(selectedEffect == 'size'){ options = { to: {width: 280,height: 185} }; }
+			
+			//run the effect
+			if(selectedEffect=="explode")
+			$("#information").show(selectedEffect,options,500,effectCallback);
+			else
+			$("#information").effect(selectedEffect,options,500,effectCallback);
+		};
+
+		//callback function to bring a hidden box back
+		function effectCallback(){
+			setTimeout(function(){
+				$("#information:hidden").removeAttr('style').hide().fadeOut();
+			}, 500);
+		};
+

@@ -1,7 +1,7 @@
 TODO
 
-1) Fix the panning when rotated at non starting positions
-2) Fix rotation by mouse after rotation by button
+DONE 1) Fix the panning when rotated at non starting positions
+DONE 2) Fix rotation by mouse after rotation by button
 3) Fix the scale slider bug where it doesn't start and end at the same size if you start and end at the same slider value
 4) Better handle the opening of new tabs. We should probably open a new tab but not switch to it immediately. Instead we should notify the user on the oH page that a new tab with wikipedia was opened with information that they may want to see.
 5) On demand model loading
@@ -10,6 +10,4 @@ TODO
 8) Instead of sending models to far far away, delete them from the scene.
 9) Fix reset view code.
 10) Add hair particles
-
-11) Inexplicable shader loading issue
-12) Wordwrap for the text canvas elements
+11) Add grid and tool to measure distance between two points
